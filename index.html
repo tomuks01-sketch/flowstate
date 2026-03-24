@@ -2241,7 +2241,7 @@ function logoTap() {
     }
   }
 }
-function chkPin(){
+async function chkPin(){
   const pin=[0,1,2,3].map(i=>$('p'+i).value).join('');
   if(pin.length!==4){$('ae').textContent='Enter all 4 digits';return;}
   if(pin!==getPin()){
@@ -2251,46 +2251,49 @@ function chkPin(){
   }
   _authed = true;
   $('AUTH').style.display='none';
-  init();
+  await init();
 }
 function chgPin(){const c=$('pc').value,n=$('pn').value,f=$('pf').value;if(c!==getPin()){toast('Incorrect PIN','r');return;}if(n.length!==4||!/^\d+$/.test(n)){toast('4 digits required','a');return;}if(n!==f){toast('PINs do not match','a');return;}localStorage.setItem('fs_pin',n);toast('PIN changed','g');['pc','pn','pf'].forEach(id=>$(id).value='');}
 
 // ── INIT ──
 async function init() {
-  // Try server first (when hosted)
-  if (window.location.protocol !== 'file:') {
-    try {
-      const r = await fetch('/api/data', { signal: AbortSignal.timeout(2000) });
-      if (r.ok) {
-        const serverD = await r.json();
-        if (serverD && serverD.c) {
-          D = serverD;
-          ensureNewData();
-          showApp();
-          rAll();
-          setTimeout(() => { const b = document.querySelector('.tn[onclick*="dash"]'); go('dash', b); }, 50);
-          return;
-        }
-      }
-    } catch (_) {}
-  }
-  // Fallback: localStorage
-  const raw = localStorage.getItem(K);
-  if (raw) { try { D = JSON.parse(raw); } catch { D = null; } }
+  // Load data silently in background (server first, then localStorage)
   if (!D) {
-    const c = {
-      name:'FlowState Engineering', client:'Contractors Portal',
-      start:'', end:'', totalUnits:1, unitSng:'Unit', unitPlu:'Units',
-      teams:3, cycleDays:28, contractor:'', stdH:39, maxH:60,
-      floorM2:2000, testBays:2, staticM2:0, notes:''
-    };
-    D = blank(c);
+    if (window.location.protocol !== 'file:') {
+      try {
+        const r = await fetch('/api/data', { signal: AbortSignal.timeout(3000) });
+        if (r.ok) {
+          const serverD = await r.json();
+          if (serverD && serverD.c) { D = serverD; }
+        }
+      } catch (_) {}
+    }
+    if (!D) {
+      const raw = localStorage.getItem(K);
+      if (raw) { try { D = JSON.parse(raw); } catch { D = null; } }
+    }
+    if (!D) {
+      const c = {
+        name:'FlowState Engineering', client:'Contractors Portal',
+        start:'', end:'', totalUnits:1, unitSng:'Unit', unitPlu:'Units',
+        teams:3, cycleDays:28, contractor:'', stdH:39, maxH:60,
+        floorM2:2000, testBays:2, staticM2:0, notes:''
+      };
+      D = blank(c);
+      sv();
+    }
     ensureNewData();
-    sv();
   }
-  showApp();
-  rAll();
-  setTimeout(() => { const b = document.querySelector('.tn[onclick*="dash"]'); go('dash', b); }, 50);
+  // Only show app if already authenticated (e.g. called from chkPin)
+  if (_authed) {
+    showApp();
+    rAll();
+    setTimeout(() => {
+      const btn = document.querySelector('.tn[onclick*="dash"]');
+      go('dash', btn);
+    }, 50);
+  }
+  // Otherwise AUTH screen stays visible (default state)
 }
 ;
 function showApp(){if(!_authed)return;$('APP').classList.add('V');$('SETUP').classList.remove('V');$('PORTAL').classList.remove('V');}
@@ -7337,9 +7340,9 @@ function startTime() {
   }
 }
 
-window.onload = function() {
+window.onload = async function() {
   startTime();
-  if (typeof init === 'function') init();
+  await init();
   const p0 = document.getElementById('p0');
   if (p0) p0.focus();
   if (_authed && typeof sfInit === 'function') setTimeout(sfInit, 200);
