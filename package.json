@@ -1,0 +1,11 @@
+{
+  "name": "flowstate-engineering",
+  "version": "1.0.0",
+  "description": "FlowState Engineering — Production Intelligence Platform",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": { "node": ">=16.0.0" },
+  "dependencies": {}
+}
